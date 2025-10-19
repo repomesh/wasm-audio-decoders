@@ -1,12 +1,19 @@
 #include <stdlib.h>
 #include "codec.h"
 
+static const unsigned char INIT_PACKET = 0x01;
+static const unsigned char COMMENT_PACKET = 0x03;
+static const unsigned char SETUP_PACKET = 0x05;
+
+static const unsigned char empty_comment_data[] = { COMMENT_PACKET, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 };
+
 typedef struct {
     vorbis_dsp_state dsp_state;
     vorbis_block block;
     vorbis_info info;
     vorbis_comment comment;
     ogg_packet current_packet;
+    unsigned char received_setup_packets;
 
     /* input */
     unsigned char *input;

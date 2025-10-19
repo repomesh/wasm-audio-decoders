@@ -59,8 +59,13 @@ static char *error_strings[] = {
     "OV_ENOTAUDIO the packet is not an audio packet.",
     "OV_EBADPACKET there was an error in the packet.",
     "OV_EINVAL the decoder is in an invalid state to accept blocks.",
-    "vorbis_synthesis_init error"
 };
+
+static char *FUNC_NAME_vorbis_synthesis_headerin = "_headerin";
+static char *FUNC_NAME_vorbis_synthesis_init = "_init";
+static char *FUNC_NAME_vorbis_synthesis = "";
+static char *FUNC_NAME_vorbis_synthesis_blockin = "_blockin";
+static char *FUNC_NAME_vorbis_synthesis_read = "_read";
 
 static void add_error(OggVorbisDecoder *decoder, int error_code, char *function_name) {
     int error_idx = 0;
@@ -71,7 +76,6 @@ static void add_error(OggVorbisDecoder *decoder, int error_code, char *function_
         case OV_ENOTAUDIO: error_idx = 4; break;
         case OV_EBADPACKET: error_idx = 5; break;
         case OV_EINVAL: error_idx = 6; break;
-        case 7: error_idx = 7; break;
     }
 
     if (*decoder->errors_len != decoder->errors_max) {
@@ -86,16 +90,32 @@ void send_setup(
     long first_page_flag
 ) {
     set_current_packet(decoder, first_page_flag);
+    uint8_t packet_type = decoder->current_packet.packet[0];
+
+    if (packet_type == SETUP_PACKET && !(decoder->received_setup_packets & COMMENT_PACKET)) {
+        // send an empty comment packet if none was received
+        ogg_packet empty_comment = {
+            .packet = (unsigned char *)empty_comment_data,
+            .bytes = sizeof(empty_comment_data)
+        };
+
+        int error = vorbis_synthesis_headerin(&decoder->info, &decoder->comment, &empty_comment);
+        decoder->received_setup_packets &= COMMENT_PACKET;
+
+        if (error) add_error(decoder, error, FUNC_NAME_vorbis_synthesis_headerin);
+    }
 
     int error = vorbis_synthesis_headerin(&decoder->info, &decoder->comment, &decoder->current_packet);
-    if (error) add_error(decoder, error, "vorbis_synthesis_headerin");
+    decoder->received_setup_packets &= packet_type;
+
+    if (error) add_error(decoder, error, FUNC_NAME_vorbis_synthesis_headerin);
 }
 
 void init_dsp(
     OggVorbisDecoder *decoder
 ) {
     int error = vorbis_synthesis_init(&decoder->dsp_state, &decoder->info);
-    if (error) add_error(decoder, 7, "vorbis_synthesis_init");
+    if (error) add_error(decoder, error, FUNC_NAME_vorbis_synthesis_init);
 
     vorbis_block_init(&decoder->dsp_state, &decoder->block);
 
@@ -110,16 +130,16 @@ void decode_packets(
     set_current_packet(decoder, 0);
     
     int synthesis_result = vorbis_synthesis(&decoder->block, &decoder->current_packet);
-    if (synthesis_result) add_error(decoder, synthesis_result, "vorbis_synthesis");
+    if (synthesis_result) add_error(decoder, synthesis_result, FUNC_NAME_vorbis_synthesis);
 
     int block_in_result = vorbis_synthesis_blockin(&decoder->dsp_state, &decoder->block);
-    if (block_in_result) add_error(decoder, block_in_result, "vorbis_synthesis_blockin");
+    if (block_in_result) add_error(decoder, block_in_result, FUNC_NAME_vorbis_synthesis_blockin);
 
     // save decoded pcm
     *decoder->samples_decoded = vorbis_synthesis_pcmout(&decoder->dsp_state, decoder->output);
 
     int synthesis_read_result = vorbis_synthesis_read(&decoder->dsp_state, *decoder->samples_decoded);
-    if (synthesis_read_result) add_error(decoder, synthesis_read_result, "vorbis_synthesis_read");
+    if (synthesis_read_result) add_error(decoder, synthesis_read_result, FUNC_NAME_vorbis_synthesis_read);
 }
 
 void destroy_decoder(
