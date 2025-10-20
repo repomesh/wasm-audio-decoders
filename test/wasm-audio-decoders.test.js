@@ -3029,7 +3029,7 @@ describe("wasm-audio-decoders", () => {
         const { paths, result } = await test_decode(
           new OggVorbisDecoder(),
           "decodeFile",
-          "should decode vorbis with a large commentr",
+          "should decode vorbis with a large comment",
           oggVorbisLargeCommentTestFile,
           oggVorbisLargeCommentTestFile,
         );
