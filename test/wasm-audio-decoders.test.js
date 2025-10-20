@@ -297,6 +297,7 @@ describe("wasm-audio-decoders", () => {
   const oggFlac96000kTestFile = "flac.96000.ogg";
   const oggVorbisStereoTestFile = "ogg.vorbis";
   const oggVorbis96000kTestFile = "ogg.vorbis.96000.ogg";
+  const oggVorbisLargeCommentTestFile = "ogg.vorbis.large.comment.ogg";
   const oggVorbisMultichannelTestFile = "ogg.vorbis.8.ogg";
   const oggVorbis32TestFile = "ogg.vorbis.32.ogg";
   const oggVorbis64TestFile = "ogg.vorbis.64.ogg";
@@ -3020,6 +3021,27 @@ describe("wasm-audio-decoders", () => {
         expect(result.errors.length).toEqual(0);
         expect(result.samplesDecoded).toEqual(5760449);
         expect(result.sampleRate).toEqual(96000);
+        expect(result.bitDepth).toEqual(16);
+        expect(Buffer.compare(actual, expected)).toEqual(0);
+      });
+
+      it("should decode vorbis with a large comment", async () => {
+        const { paths, result } = await test_decode(
+          new OggVorbisDecoder(),
+          "decodeFile",
+          "should decode vorbis with a large comment",
+          oggVorbisLargeCommentTestFile,
+          oggVorbisLargeCommentTestFile,
+        );
+
+        const [actual, expected] = await Promise.all([
+          fs.readFile(paths.actualPath),
+          fs.readFile(paths.expectedPath),
+        ]);
+
+        expect(result.errors.length).toEqual(0);
+        expect(result.samplesDecoded).toEqual(1476998);
+        expect(result.sampleRate).toEqual(22050);
         expect(result.bitDepth).toEqual(16);
         expect(Buffer.compare(actual, expected)).toEqual(0);
       });
